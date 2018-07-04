@@ -20,7 +20,7 @@ Maven Repository:
     <dependency>
         <groupId>com.chrismin13</groupId>
         <artifactId>AdditionsAPI</artifactId>
-        <version>1.2.9-SNAPSHOT</version>
+        <version>1.3.0-SNAPSHOT</version>
         <scope>provided</scope>
     </dependency>
 </dependencies>
