@@ -66,8 +66,8 @@ public class ItemUtils {
 	 * replaces items entire lore to given lore.
 	 */
 	public static ItemStack setLore(ItemStack item, List<String> lores) {
-		ItemMeta meta = item.getItemMeta();
 		itemMetaNullCheck(item);
+		ItemMeta meta = item.getItemMeta();
 		meta.setLore(lores);
 		item.setItemMeta(meta);
 		return item;
@@ -84,8 +84,8 @@ public class ItemUtils {
 	 * Changes Items display name.
 	 */
 	public static ItemStack setDisplayName(ItemStack item, String name) {
-		ItemMeta meta = item.getItemMeta();
 		itemMetaNullCheck(item);
+		ItemMeta meta = item.getItemMeta();
 		if (name != null) {
 			meta.setDisplayName(name);
 		} else {
@@ -105,8 +105,8 @@ public class ItemUtils {
 	 * adds given lore to the end of other lore.
 	 */
 	public static ItemStack addLore(ItemStack item, String[] lores) {
-		ItemMeta meta = item.getItemMeta();
 		itemMetaNullCheck(item);
+		ItemMeta meta = item.getItemMeta();
 		List<String> list = meta.getLore();
 		if (list == null) {
 			list = new LinkedList<String>();

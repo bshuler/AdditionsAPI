@@ -187,7 +187,6 @@ public class RecipeIngredient implements Cloneable, Comparable<RecipeIngredient>
 		return hash;
 	}
 
-	@SuppressWarnings("deprecation")
 	@Override
 	public int compareTo(RecipeIngredient ingredient) {
 		final int before = -1;
@@ -197,10 +196,16 @@ public class RecipeIngredient implements Cloneable, Comparable<RecipeIngredient>
 		if (this == ingredient)
 			return equal;
 
-		if (this.material.getId() < ingredient.material.getId())
-			return before;
-		if (this.material.getId() > ingredient.material.getId())
-			return after;
+		// Was: this.material.getId() < ingredient.material.getId(). Material.getId()
+		// is the pre-flattening numeric ID and unconditionally throws
+		// IllegalArgumentException("Cannot get ID of Modern Material") for every
+		// Material added since the 1.13 flattening - i.e. for any two
+		// non-identical RecipeIngredients on any modern server, compareTo() always
+		// threw. Fixed by ordering on the enum's own natural ordering instead,
+		// which is total, stable, and doesn't depend on a removed numeric ID.
+		int materialCompare = this.material.compareTo(ingredient.material);
+		if (materialCompare != 0)
+			return materialCompare < 0 ? before : after;
 
 		if (this.blockData < ingredient.blockData)
 			return before;
