@@ -10,8 +10,7 @@
 # = #
 # ------=======-------=======-------=======-------=======-------=======----- #
 # = #
-# HTTP: 
-# # This is not needed if you are using Minepack!
+# HTTP:
 # # Recommended to leave as default, apart from the following values.
 # # localhost: This is picked automatically by default so it does not appear.
 # #            However, if you are having issues with the texture pack, try
@@ -24,9 +23,11 @@
 # ------=======-------=======-------=======-------=======-------=======----- #
 # = #
 # Resource Pack:
-# # use-minepack: Whether the plugin should use the online service Minepack
-# #               to host the resource pack, rather than the built in
-# #               HTTP File Server.
+# # use-minepack: Ignored. The Minepack (minepack.net) hosting integration
+# #               was removed because the service is defunct - the built-in
+# #               HTTP File Server below is always used. This key is kept
+# #               only so existing config.yml files with it set don't error
+# #               on load.
 # # send-to-player: Whether the player will receive the Resource Pack when
 # #                 they join the server. 
 # # force-on-join: Whether the players will be kicked if they do not
@@ -73,7 +74,11 @@ http:
  numWriteThread: 4
  
 resource-pack:
- use-minepack: true
+ # use-minepack is ignored: the Minepack (minepack.net) hosting integration
+ # was removed because the service is defunct. The built-in HTTP server
+ # below is always used to host the resource pack. Kept here only so
+ # existing config.yml files with this key set don't error on load.
+ use-minepack: false
  send-to-player: true
  force-on-join: true
  overwrite-files: true

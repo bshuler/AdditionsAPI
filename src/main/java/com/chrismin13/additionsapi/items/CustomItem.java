@@ -26,6 +26,8 @@ import com.comphenix.attribute.Attributes.Attribute;
 import com.comphenix.attribute.Attributes.AttributeType;
 import com.comphenix.attribute.Attributes.Operation;
 
+import us.fihgu.toolbox.compat.EnumCompat;
+
 /**
  * A Custom Item with multiple values that can be changed. <br>
  * <br>
@@ -56,6 +58,15 @@ public class CustomItem implements Cloneable, Comparable<CustomItem> {
 	 * as a random UUID, due to not being able to find what the UUID is in Vanilla
 	 * Minecraft.
 	 */
+	/**
+	 * ItemFlag.HIDE_POTION_EFFECTS was renamed to HIDE_ADDITIONAL_TOOLTIP_COMPAT
+	 * in later Bukkit/Paper versions. Resolved by name at runtime so this source
+	 * file compiles against every Paper API version this project targets. See
+	 * CLAUDE.md "Known Bukkit/Paper API drift".
+	 */
+	private static final ItemFlag HIDE_ADDITIONAL_TOOLTIP_COMPAT = EnumCompat.resolve(ItemFlag.class,
+			"HIDE_ADDITIONAL_TOOLTIP", "HIDE_POTION_EFFECTS");
+
 	public static final UUID MAIN_HAND_UUID = UUID.fromString("8c16d72b-d950-410c-b7d1-eeed86e734c7");
 	/**
 	 * The UUID of the Attribute that will be applied to the Off Hand Slot. This
@@ -685,23 +696,23 @@ public class CustomItem implements Cloneable, Comparable<CustomItem> {
 	 * @return Boolean of whether the text that shows the potion effect this item
 	 *         will include when consumed in the item lore is visible or not. If it
 	 *         is true, then the tag is visible. If it is invisible then the
-	 *         CustomItem includes the ItemFlag HIDE_POTION_EFFECTS
+	 *         CustomItem includes the ItemFlag HIDE_ADDITIONAL_TOOLTIP
 	 */
 	public boolean getPotionEffectsVisibility() {
-		return !itemFlags.contains(ItemFlag.HIDE_POTION_EFFECTS);
+		return !itemFlags.contains(HIDE_ADDITIONAL_TOOLTIP_COMPAT);
 	}
 
 	/**
 	 * Set whether the text that shows the potion effect this item will include when
 	 * consumed in the item lore is visible or not. If it is true, then the tag is
 	 * visible. If it is invisible then the CustomItem includes the ItemFlag
-	 * HIDE_POTION_EFFECTS
+	 * HIDE_ADDITIONAL_TOOLTIP
 	 */
 	public CustomItem setPotionEffectsVisibility(boolean potionEffectVisibility) {
 		if (!potionEffectVisibility)
-			itemFlags.add(ItemFlag.HIDE_POTION_EFFECTS);
+			itemFlags.add(HIDE_ADDITIONAL_TOOLTIP_COMPAT);
 		else
-			itemFlags.remove(ItemFlag.HIDE_POTION_EFFECTS);
+			itemFlags.remove(HIDE_ADDITIONAL_TOOLTIP_COMPAT);
 		return this;
 	}
 

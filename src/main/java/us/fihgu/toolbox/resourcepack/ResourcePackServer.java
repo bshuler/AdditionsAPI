@@ -1,6 +1,5 @@
 package us.fihgu.toolbox.resourcepack;
 
-import java.io.File;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -10,7 +9,6 @@ import com.chrismin13.additionsapi.AdditionsAPI;
 import com.chrismin13.additionsapi.files.ConfigFile;
 import com.chrismin13.additionsapi.utils.Debug;
 
-import me.benfah.cu.init.impl.MinePackInitializationMethod;
 import us.fihgu.toolbox.http.FileContext;
 import us.fihgu.toolbox.http.HTTPServer;
 import us.fihgu.toolbox.http.StaticContextGenerator;
@@ -51,14 +49,16 @@ public class ResourcePackServer {
 				Paths.get(AdditionsAPI.getInstance().getDataFolder() + "/resource-pack/resource.zip"))));
 
 		if (ConfigFile.getInstance().getConfig().getBoolean("resource-pack.send-to-player")) {
-			if (!ConfigFile.getInstance().getConfig().getBoolean("resource-pack.use-minepack")) {
-				server.startServer();
-			} else {
-				MinePackInitializationMethod.uploadResourcePack(
-						new File(AdditionsAPI.getInstance().getDataFolder() + "/resource-pack/resource.zip"));
-				AdditionsAPI.getInstance().getConfig().set("resource-pack.sha1", MinePackInitializationMethod.resourcePackHash);
-				AdditionsAPI.getInstance().getConfig().set("resource-pack.link", MinePackInitializationMethod.resourcePack);
+			if (ConfigFile.getInstance().getConfig().getBoolean("resource-pack.use-minepack")) {
+				// Minepack (minepack.net) was a third-party resource pack hosting service
+				// that this plugin used to upload to via HTML-scraping (Selenium/HtmlUnit).
+				// The service is defunct; that integration has been removed (see
+				// legacy-hooks/MinePackInitializationMethod.java.txt) and the built-in
+				// HTTP file server below is always used regardless of this setting.
+				Debug.sayError(
+						"resource-pack.use-minepack is enabled in config.yml, but the Minepack integration has been removed (the service is defunct). Falling back to the built-in HTTP server. Set use-minepack to false to silence this message.");
 			}
+			server.startServer();
 		}
 	}
 

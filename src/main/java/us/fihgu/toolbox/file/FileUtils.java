@@ -12,6 +12,14 @@ import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -45,19 +53,60 @@ public class FileUtils {
 	}
 
 	public static void copyURLtoFile(URL url, File file) throws IOException {
-		org.apache.commons.io.FileUtils.copyURLToFile(url, file);
+		// Replaces org.apache.commons.io.FileUtils.copyURLToFile(url, file) - the
+		// commons-io dependency was only ever pulled in transitively via the
+		// (now removed) Selenium/htmlunit-driver dependency. Plain JDK NIO channels
+		// do the same job without adding a new dependency to shade.
+		createFileAndPath(file);
+		try (ReadableByteChannel in = Channels.newChannel(url.openStream());
+				FileOutputStream out = new FileOutputStream(file)) {
+			out.getChannel().transferFrom(in, 0, Long.MAX_VALUE);
+		}
 	}
 
 	public static void copyFolder(File from, File to) throws IOException {
-		org.apache.commons.io.FileUtils.copyDirectory(from, to);
+		// Replaces org.apache.commons.io.FileUtils.copyDirectory(from, to).
+		Path fromPath = from.toPath();
+		Path toPath = to.toPath();
+		Files.walkFileTree(fromPath, new SimpleFileVisitor<Path>() {
+			@Override
+			public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+				Files.createDirectories(toPath.resolve(fromPath.relativize(dir)));
+				return FileVisitResult.CONTINUE;
+			}
+
+			@Override
+			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+				Files.copy(file, toPath.resolve(fromPath.relativize(file)), StandardCopyOption.REPLACE_EXISTING);
+				return FileVisitResult.CONTINUE;
+			}
+		});
 	}
 
 	public static void copyFile(File from, File to) throws IOException {
-		org.apache.commons.io.FileUtils.copyFile(from, to);
+		// Replaces org.apache.commons.io.FileUtils.copyFile(from, to).
+		createFileAndPath(to);
+		Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
 	}
 
 	public static void deleteFolder(File folder) throws IOException {
-		org.apache.commons.io.FileUtils.deleteDirectory(folder);
+		// Replaces org.apache.commons.io.FileUtils.deleteDirectory(folder).
+		if (!folder.exists()) {
+			return;
+		}
+		Files.walkFileTree(folder.toPath(), new SimpleFileVisitor<Path>() {
+			@Override
+			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+				Files.delete(file);
+				return FileVisitResult.CONTINUE;
+			}
+
+			@Override
+			public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+				Files.delete(dir);
+				return FileVisitResult.CONTINUE;
+			}
+		});
 	}
 
 	public static void copyStreams(InputStream in, OutputStream out) throws IOException {

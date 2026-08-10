@@ -24,10 +24,19 @@ import com.chrismin13.additionsapi.permissions.ItemPermissions;
 import com.chrismin13.additionsapi.permissions.ShieldPermissions;
 import com.chrismin13.additionsapi.permissions.SpadePermissions;
 import com.chrismin13.additionsapi.utils.PermissionUtils;
+import us.fihgu.toolbox.compat.EnumCompat;
 
 public class CustomItemPlayerInteract implements Listener {
 
 	String version = Bukkit.getServer().getVersion();
+
+	/**
+	 * Material.GRASS (the plant item) was renamed to SHORT_GRASS_COMPAT in
+	 * later Bukkit/Paper versions. Resolved by name at runtime so this source
+	 * file compiles against every Paper API version this project targets. See
+	 * CLAUDE.md "Known Bukkit/Paper API drift".
+	 */
+	private static final Material SHORT_GRASS_COMPAT = EnumCompat.resolve(Material.class, "SHORT_GRASS", "GRASS");
 
 	@EventHandler
 	public void onCustomItemPlayerInteract(CustomItemPlayerInteractEvent customEvent) {
@@ -123,14 +132,14 @@ public class CustomItemPlayerInteract implements Listener {
 			if (materialUp == Material.AIR && (face == BlockFace.UP || face == BlockFace.EAST || face == BlockFace.NORTH
 					|| face == BlockFace.SOUTH || face == BlockFace.WEST)) {
 
-				if (mechanics instanceof SpadeDurability && material == Material.GRASS) {
+				if (mechanics instanceof SpadeDurability && material == SHORT_GRASS_COMPAT) {
 
 					if (perm instanceof SpadePermissions && PermissionUtils.allowedAction(player, perm.getType(),
 							((SpadePermissions) perm).getTile()))
 						damageEvent.setDamage(((SpadeDurability) mechanics).getPathTile());
 					else
 						event.setCancelled(true);
-				} else if ((material == Material.GRASS || material == Material.GRASS_PATH
+				} else if ((material == SHORT_GRASS_COMPAT || material == Material.DIRT_PATH
 						|| (material == Material.DIRT && data != (byte) 2))) {
 
 					if (ToolType.getToolType(cItem.getMaterial()) == ToolType.HOE

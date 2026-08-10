@@ -70,3 +70,7 @@ $RECYCLE.BIN/
 
 dependency-reduced-pom.xml
 /target/
+
+# Gradle
+.gradle/
+build/

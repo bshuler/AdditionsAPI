@@ -15,8 +15,6 @@ import com.chrismin13.additionsapi.files.ConfigFile;
 import com.chrismin13.additionsapi.utils.Debug;
 import com.chrismin13.additionsapi.utils.LangFileUtils;
 
-import me.benfah.cu.init.impl.MinePackInitializationMethod;
-
 public class ResourcePackListener implements Listener {
 
 	@EventHandler
@@ -30,17 +28,17 @@ public class ResourcePackListener implements Listener {
 					&& ConfigFile.getInstance().getConfig().getBoolean("resource-pack.send-to-player")
 					&& !player.hasPermission(
 							new Permission("additionsapi.resourcepack.disable", PermissionDefault.FALSE))) {
+				// The Minepack (minepack.net) hosting integration has been removed (the
+				// service is defunct) - the built-in HTTP server link is always used now,
+				// regardless of the resource-pack.use-minepack setting. See
+				// legacy-hooks/MinePackInitializationMethod.java.txt.
 				String link;
-				if (!ConfigFile.getInstance().getConfig().getBoolean("resource-pack.use-minepack")) {
-					if (hostAddress != null && hostAddress.equals("127.0.0.1")) {
-						link = "http://" + ResourcePackServer.localhost + ":" + ResourcePackServer.port
-								+ ResourcePackServer.path;
-					} else {
-						link = "http://" + ResourcePackServer.host + ":" + ResourcePackServer.port
-								+ ResourcePackServer.path;
-					}
+				if (hostAddress != null && hostAddress.equals("127.0.0.1")) {
+					link = "http://" + ResourcePackServer.localhost + ":" + ResourcePackServer.port
+							+ ResourcePackServer.path;
 				} else {
-					link = MinePackInitializationMethod.resourcePack;
+					link = "http://" + ResourcePackServer.host + ":" + ResourcePackServer.port
+							+ ResourcePackServer.path;
 				}
 				if (player != null && player.isOnline())
 					if (ResourcePackManager.hasSendWithHash)

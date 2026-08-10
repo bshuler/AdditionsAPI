@@ -20,8 +20,17 @@ import com.chrismin13.additionsapi.items.CustomItemStack;
 import com.chrismin13.additionsapi.permissions.HoePermissions;
 import com.chrismin13.additionsapi.permissions.ItemPermissions;
 import com.chrismin13.additionsapi.utils.PermissionUtils;
+import us.fihgu.toolbox.compat.EnumCompat;
 
 public class PlayerInteract implements Listener {
+
+	/**
+	 * Material.GRASS (the plant item) was renamed to SHORT_GRASS_COMPAT in
+	 * later Bukkit/Paper versions. Resolved by name at runtime so this source
+	 * file compiles against every Paper API version this project targets. See
+	 * CLAUDE.md "Known Bukkit/Paper API drift".
+	 */
+	private static final Material SHORT_GRASS_COMPAT = EnumCompat.resolve(Material.class, "SHORT_GRASS", "GRASS");
 
 	@EventHandler
 	public void onPlayerInteract(PlayerInteractEvent event) {
@@ -62,7 +71,7 @@ public class PlayerInteract implements Listener {
 	}
 
 	public static boolean shouldPlaySound(Material material, ItemStack item, byte data, Player player) {
-		if ((material == Material.GRASS || (material == Material.DIRT && data != (byte) 2))) {
+		if ((material == SHORT_GRASS_COMPAT || (material == Material.DIRT && data != (byte) 2))) {
 			if (!AdditionsAPI.isCustomItem(item))
 				return true;
 			CustomItemStack cStack = new CustomItemStack(item);

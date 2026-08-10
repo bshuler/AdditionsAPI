@@ -20,6 +20,7 @@ import com.comphenix.attribute.Attributes;
 import com.comphenix.attribute.Attributes.Attribute;
 import com.comphenix.attribute.Attributes.AttributeType;
 import com.comphenix.attribute.Attributes.Operation;
+import us.fihgu.toolbox.compat.EnumCompat;
 
 /**
  * 
@@ -51,6 +52,16 @@ public class CustomTool extends CustomItem {
 	// === VARIABLES === //
 
 	private boolean toolLikeAttributes = false;
+
+	/**
+	 * Enchantment.DAMAGE_ALL was renamed to SHARPNESS_COMPAT in later
+	 * Bukkit/Paper versions. Enchantment is a class with static instance
+	 * fields rather than a real Java enum, so it is resolved by reflection at
+	 * runtime rather than Enum.valueOf. See CLAUDE.md "Known Bukkit/Paper API
+	 * drift".
+	 */
+	private static final Enchantment SHARPNESS_COMPAT = EnumCompat.resolveStaticField(Enchantment.class,
+			"SHARPNESS", "DAMAGE_ALL");
 
 	// === CREATING THE TOOL === //
 
@@ -236,8 +247,8 @@ public class CustomTool extends CustomItem {
 					amount = NumberUtils.round(amount, 2);
 
 					if (type.equals(AttributeType.GENERIC_ATTACK_DAMAGE) && enchants != null && !enchants.isEmpty()
-							&& enchants.containsKey(Enchantment.DAMAGE_ALL)) {
-						final int level = enchants.get(Enchantment.DAMAGE_ALL);
+							&& enchants.containsKey(SHARPNESS_COMPAT)) {
+						final int level = enchants.get(SHARPNESS_COMPAT);
 						if (level == 1) {
 							amount += 1;
 						} else if (level > 1) {

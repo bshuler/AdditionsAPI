@@ -368,7 +368,7 @@ public enum ItemType {
 			return UTILITY;
 		case ZOMBIE_HORSE_SPAWN_EGG:
 			return UTILITY;
-		case ZOMBIE_PIGMAN_SPAWN_EGG:
+		case ZOMBIFIED_PIGLIN_SPAWN_EGG:
 			return UTILITY;
 		case ZOMBIE_VILLAGER_SPAWN_EGG:
 			return UTILITY;

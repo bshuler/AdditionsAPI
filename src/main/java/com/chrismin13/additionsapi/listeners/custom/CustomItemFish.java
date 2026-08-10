@@ -16,8 +16,17 @@ import com.chrismin13.additionsapi.events.item.PlayerCustomItemDamageEvent;
 import com.chrismin13.additionsapi.items.CustomItem;
 import com.chrismin13.additionsapi.permissions.FishingRodPermissions;
 import com.chrismin13.additionsapi.utils.PermissionUtils;
+import us.fihgu.toolbox.compat.EnumCompat;
 
 public class CustomItemFish implements Listener {
+
+	/**
+	 * EntityType.DROPPED_ITEM was renamed to ITEM_COMPAT in later
+	 * Bukkit/Paper versions. Resolved by name at runtime so this source file
+	 * compiles against every Paper API version this project targets. See
+	 * CLAUDE.md "Known Bukkit/Paper API drift".
+	 */
+	private static final EntityType ITEM_COMPAT = EnumCompat.resolve(EntityType.class, "ITEM", "DROPPED_ITEM");
 
 	@EventHandler(priority = EventPriority.MONITOR)
 	public void onCustomItemFish(CustomItemFishEvent customEvent) {
@@ -34,7 +43,7 @@ public class CustomItemFish implements Listener {
 
 			switch (state) {
 			case CAUGHT_ENTITY:
-				if (event.getCaught().getType() == EntityType.DROPPED_ITEM) {
+				if (event.getCaught().getType() == ITEM_COMPAT) {
 					damageEvent.setDamage(mechanics.getItemReel());
 				} else {
 					damageEvent.setDamage(mechanics.getEntityReel());

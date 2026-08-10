@@ -1,21 +1,19 @@
 package us.fihgu.toolbox.resourcepack;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.nio.file.Files;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.function.Function;
 
-import javax.xml.bind.DatatypeConverter;
-
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.IOUtils;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.chrismin13.additionsapi.AdditionsAPI;
@@ -136,19 +134,21 @@ public class ResourcePackManager {
 		// change last modified date to avoid different md5 for the same contents
 		resourceFile.setLastModified(1500135786000L);
 
-		FileInputStream fisRP = new FileInputStream(resourceFile);
-
-		// md5Hex converts an array of bytes into an array of characters representing
-		// the hexadecimal values of each byte in order.
-		// The returned array will be double the length of the passed array, as it takes
-		// two characters to represent any given byte.
-
-		byte[] isByte = IOUtils.toByteArray(fisRP);
-		resourcePackMd5 = DigestUtils.md5Hex(isByte);
-		resourcePackSha1 = DigestUtils.sha1Hex(isByte);
-		resourcePackSha1Byte = DatatypeConverter.parseHexBinary(resourcePackSha1);
-
-		fisRP.close();
+		// Replaces org.apache.commons.io.IOUtils / org.apache.commons.codec.digest.DigestUtils
+		// / javax.xml.bind.DatatypeConverter (JAXB, removed from the JDK since Java 11) -
+		// those were only ever pulled in transitively via the (now removed)
+		// Selenium/htmlunit-driver dependency. Plain java.security.MessageDigest does the
+		// same job without adding a new dependency to shade.
+		byte[] isByte = Files.readAllBytes(resourceFile.toPath());
+		try {
+			resourcePackMd5 = toHexString(MessageDigest.getInstance("MD5").digest(isByte));
+			resourcePackSha1Byte = MessageDigest.getInstance("SHA-1").digest(isByte);
+			resourcePackSha1 = toHexString(resourcePackSha1Byte);
+		} catch (NoSuchAlgorithmException e) {
+			// MD5 and SHA-1 are guaranteed by the JDK spec to be available on every
+			// conforming JVM, so this can only indicate a broken JVM install.
+			throw new RuntimeException(e);
+		}
 
 		String currentMd5 = AdditionsAPI.getInstance().getConfig().getString("resource-pack.md5");
 		if (currentMd5 == null || !currentMd5.equals(resourcePackMd5)) {
@@ -338,5 +338,19 @@ public class ResourcePackManager {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Replaces javax.xml.bind.DatatypeConverter.printHexBinary (JAXB, removed
+	 * from the JDK since Java 11) for turning a digest's raw bytes into a
+	 * lowercase hex string.
+	 */
+	private static String toHexString(byte[] bytes) {
+		StringBuilder sb = new StringBuilder(bytes.length * 2);
+		for (byte b : bytes) {
+			sb.append(Character.forDigit((b >> 4) & 0xF, 16));
+			sb.append(Character.forDigit(b & 0xF, 16));
+		}
+		return sb.toString();
 	}
 }

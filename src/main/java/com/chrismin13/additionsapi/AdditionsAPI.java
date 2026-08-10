@@ -6,7 +6,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
-import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -135,8 +134,10 @@ public class AdditionsAPI extends JavaPlugin implements Listener {
 
 		lang.saveLang();
 
-		// Initialize Metrics
-		new Metrics(this);
+		// bStats metrics were removed: the old bstats-bukkit 1.4 dependency and its
+		// repo.bstats.org repository are both gone from Maven Central, and modern
+		// bStats requires a plugin ID registered at bstats.org that this project
+		// does not have. See CLAUDE.md for details.
 
 		// Registering listeners
 		for (Listener listener : Arrays.asList(new EnchantItem(), new Anvil(), new CraftingTable(), new BlockBreak(),
@@ -177,9 +178,10 @@ public class AdditionsAPI extends JavaPlugin implements Listener {
 	}
 
 	public void onDisable() {
-		// Useful when reloading!
-		if (!ConfigFile.getInstance().getConfig().getBoolean("resource-pack.use-minepack"))
-			ResourcePackServer.stopServer();
+		// Useful when reloading! The built-in HTTP server is always used now (the
+		// Minepack hosting integration was removed - see legacy-hooks/), so it
+		// always needs to be stopped here.
+		ResourcePackServer.stopServer();
 
 		DurabilityBar.removeAllDurabilityBars();
 	}

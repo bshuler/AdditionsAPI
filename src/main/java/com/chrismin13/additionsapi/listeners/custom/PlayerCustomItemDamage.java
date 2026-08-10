@@ -17,8 +17,19 @@ import com.chrismin13.additionsapi.events.item.PlayerCustomItemDamageEvent;
 import com.chrismin13.additionsapi.items.CustomItem;
 import com.chrismin13.additionsapi.items.CustomItemStack;
 import com.chrismin13.additionsapi.utils.NumberUtils;
+import us.fihgu.toolbox.compat.EnumCompat;
 
 public class PlayerCustomItemDamage implements Listener {
+
+	/**
+	 * Enchantment.DURABILITY was renamed to UNBREAKING_COMPAT in later
+	 * Bukkit/Paper versions. Enchantment is a class with static instance
+	 * fields rather than a real Java enum, so it is resolved by reflection at
+	 * runtime rather than Enum.valueOf. See CLAUDE.md "Known Bukkit/Paper API
+	 * drift".
+	 */
+	private static final Enchantment UNBREAKING_COMPAT = EnumCompat.resolveStaticField(Enchantment.class,
+			"UNBREAKING", "DURABILITY");
 
 	@EventHandler(priority = EventPriority.MONITOR)
 	public void onPlayerCustomItemDamage(PlayerCustomItemDamageEvent event) {
@@ -46,11 +57,11 @@ public class PlayerCustomItemDamage implements Listener {
 			durability = item.getType().getMaxDurability() - item.getDurability();
 		// TODO: Check if you can modify the durability for items that are not
 		// unbreakable and with Fake Durability.
-		if (!item.containsEnchantment(Enchantment.DURABILITY)) {
+		if (!item.containsEnchantment(UNBREAKING_COMPAT)) {
 			durability -= event.getDamage();
 		} else {
 			for (int i = 1; i <= event.getDamage(); i++) {
-				if (NumberUtils.calculateChance(1 / ((double) item.getEnchantmentLevel(Enchantment.DURABILITY) + 1D))) {
+				if (NumberUtils.calculateChance(1 / ((double) item.getEnchantmentLevel(UNBREAKING_COMPAT) + 1D))) {
 					durability -= 1;
 				}
 			}
