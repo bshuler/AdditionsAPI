@@ -232,6 +232,9 @@ tasks.jacocoTestCoverageVerification {
                 "com.chrismin13.additionsapi.durability.ArmorDurability",
                 "com.chrismin13.additionsapi.recipes.RecipeIngredient",
                 "us.fihgu.toolbox.file.FileUtils",
+                "com.chrismin13.additionsapi.enums.ArmorType",
+                "com.chrismin13.additionsapi.enums.ToolType",
+                "com.chrismin13.additionsapi.enums.ItemType",
             )
             limit {
                 counter = "LINE"
@@ -300,6 +303,66 @@ tasks.jacocoTestCoverageVerification {
                 counter = "LINE"
                 value = "MISSEDCOUNT"
                 maximum = "4".toBigDecimal()
+            }
+        }
+        // ArmorType: toIngameString/toIngameLeatherString route through
+        // LangFileUtils' static plugin-bootstrap landmine (2 lines), and six
+        // getters (getLeatherMaterial/getChainmailMaterial/getGoldMaterial/
+        // getIronMaterial/getDiamondMaterial/getEquipmentSlot) plus
+        // getCustomShapedRecipe(RecipeIngredient) each have a provably-dead
+        // `default:` branch - switch(this) over an enum with an explicit case
+        // for every constant can never reach it. getArmorType(Material)'s
+        // default IS reachable and is tested directly. Exact count via JaCoCo
+        // XML (9), not an estimate. See ArmorTypeTest and PLAN.md.
+        rule {
+            element = "CLASS"
+            includes = listOf("com.chrismin13.additionsapi.enums.ArmorType")
+            limit {
+                counter = "LINE"
+                value = "MISSEDCOUNT"
+                maximum = "9".toBigDecimal()
+            }
+        }
+        // ToolType: toIngameString has the same LangFileUtils landmine (1
+        // line), and getDurabilityMechanics()/getCustomShapedRecipe
+        // (RecipeIngredient, RecipeIngredient) each have a provably-dead
+        // `default:` branch, same reasoning as ArmorType above.
+        // getItemPermissions()'s AXE/PICKAXE/SWORD fallthrough-to-default and
+        // getToolType(Material)'s default (any non-tool Material) are both
+        // genuinely reachable and are tested directly. Exact count via
+        // JaCoCo XML (3), not an estimate. See ToolTypeTest and PLAN.md.
+        rule {
+            element = "CLASS"
+            includes = listOf("com.chrismin13.additionsapi.enums.ToolType")
+            limit {
+                counter = "LINE"
+                value = "MISSEDCOUNT"
+                maximum = "3".toBigDecimal()
+            }
+        }
+        // ItemType.getItemType(Material): 3 of its switch's own case labels
+        // (BROWN_MUSHROOM, OBSIDIAN, SPIDER_EYE) are provably dead - all
+        // three are intercepted by the isBlock()/isEdible() early-return
+        // guards above the switch before it is ever reached (confirmed by
+        // direct probe against real MockBukkit Material data, not a
+        // source-reading guess; see ItemTypeTest). The other 39 missed lines
+        // are the switch's Material.LEGACY_* case labels: reachable on a
+        // real server, but untestable under MockBukkit v4.115.0, whose
+        // UnsafeValuesMock does not implement legacy-material metadata
+        // resolution (isBlock()/isEdible()/isRecord() throw
+        // UnimplementedOperationException for any LEGACY_* argument before
+        // the switch runs) - demonstrated with a real assertThrows, not
+        // silently omitted; see
+        // getItemType_legacyMaterial_isUntestableUnderMockBukkit in
+        // ItemTypeTest. 3 + 39 = 42, exact count via JaCoCo XML, not an
+        // estimate. See PLAN.md.
+        rule {
+            element = "CLASS"
+            includes = listOf("com.chrismin13.additionsapi.enums.ItemType")
+            limit {
+                counter = "LINE"
+                value = "MISSEDCOUNT"
+                maximum = "42".toBigDecimal()
             }
         }
     }

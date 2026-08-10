@@ -178,6 +178,135 @@ compiles for it.
       loads without exceptions. Not attempted this pass (optional per the
       task brief) — build+jar-content verification only.
 
+### 6. Test coverage — DONE (94.68% line coverage of included scope, gated at 100% minus 7 documented exceptions)
+
+JUnit 5 (Jupiter) + JaCoCo, with MockBukkit for anything touching live
+`org.bukkit.*` behavior and plain JUnit for pure-logic classes. `./gradlew
+check` runs `jacocoTestCoverageVerification`, which enforces 100% line
+coverage on every included class except the 7 explicitly-excepted classes
+below — each with an exact, JaCoCo-XML-measured `MISSEDCOUNT` ceiling, never
+an estimate. 606 tests, 0 failures, 0 errors, **0 skipped** (see the
+MockBukkit/LEGACY_* finding below for why the skip count specifically had to
+be checked, not just the pass/fail count).
+
+**Numbers** (full clean `./gradlew clean test jacocoTestReport
+jacocoTestCoverageVerification`, all green):
+
+- 59 classes analyzed (nonzero, matches the include/exclude lists — see the
+  "always re-check the analyzed-class count" gotcha below).
+- LINE: 1298/1371 covered (94.68%) across the included scope.
+- Every one of the 73 missed lines is accounted for by one of the 7
+  `MISSEDCOUNT`/`COVEREDRATIO` exceptions below (9+2+4+9+3+42+4 = 73,
+  reconciled exactly against the per-class JaCoCo XML, not assumed).
+
+**Classes excluded from the coverage bar entirely** (measured/visible in the
+HTML report, not gated by `check` — see `build.gradle.kts`'s `jacocoExcludes`
+for the authoritative list and per-class reasoning):
+`AdditionsAPI` (main class — real HTTP server, NMS reflection, ~30 listener
+registrations in `onEnable()`), `files/**` and `Debug`/`LangFileUtils`
+(static `AdditionsAPI.getInstance()` bootstrap landmine at class-load time),
+`MaterialUtils` (3486-line legacy shim whose non-`useNewMethods` branches are
+dead on every supported target), `items/**` (entangled with the same
+bootstrap landmine plus Bukkit `ItemMeta`/`Attribute` construction),
+`listeners/**` and `events/**` (same bootstrap landmine, or thin wrappers
+only exercised through it), `recipes/CustomRecipe`/`CustomShapedRecipe`/
+`CustomShapelessRecipe`/`CustomFurnaceRecipe` (Bukkit recipe registration +
+excluded `items/**`), `ResourcePackManager`/`ResourcePackServer`/
+`ResourcePackListener` (real HTTP server + network), `ReflectionUtils`
+(parses live CraftBukkit package names MockBukkit doesn't reproduce),
+`com.comphenix.attribute.**` and `com.codingforcookies.armorequip.**`
+(vendored NMS reflection, needs a live server), `NetworkUtils` (real
+outbound HTTP call), `commands/**` (same bootstrap landmine),
+`us.fihgu.toolbox.http/**` and `us.fihgu.toolbox.web/**` (hand-rolled NIO
+socket server/framework).
+
+**Classes with a partial coverage bar** (included, but with a documented,
+exact gap):
+
+| Class | Ceiling | Reason |
+|---|---|---|
+| `EquipmentSlotUtils` | `COVEREDRATIO` ≥ 0.55 | `valueFromLangFile` routes through the `LangFile`/`AdditionsAPI`-instance bootstrap landmine; its other two methods are fully tested |
+| `ArmorDurability` | `MISSEDCOUNT` ≤ 2 | Constructor's two `catch (NoSuchFieldError ignore)` guards (`DamageCause.HOT_FLOOR`/`ENTITY_SWEEP_ATTACK`) are unreachable — both constants exist on every target this project actually builds for (1.18.2+) |
+| `RecipeIngredient` | `MISSEDCOUNT` ≤ 4 | `clone()`'s `catch (CloneNotSupportedException e)` is unreachable (the class implements `Cloneable`) |
+| `FileUtils` | `MISSEDCOUNT` ≤ 4 | `deserialize()`'s `catch (ClassNotFoundException e)` and `getPluginJarPath()`'s `catch (UnsupportedEncodingException e)` ("UTF-8" is JVM-guaranteed valid) are both unreachable without contrivance |
+| `ArmorType` | `MISSEDCOUNT` ≤ 9 | `toIngameString`/`toIngameLeatherString` hit the same `LangFileUtils` landmine (2 lines); six getters plus `getCustomShapedRecipe(RecipeIngredient)` each have a provably-dead `default:` (switch-over-enum with an explicit case for every constant — 7 lines). `getArmorType(Material)`'s default IS reachable and is tested |
+| `ToolType` | `MISSEDCOUNT` ≤ 3 | Same `LangFileUtils` landmine in `toIngameString` (1 line); `getDurabilityMechanics()` and `getCustomShapedRecipe(RecipeIngredient, RecipeIngredient)` each have one dead `default:` (2 lines). `getItemPermissions()`'s reachable AXE/PICKAXE/SWORD fallthrough and `getToolType(Material)`'s reachable default are both tested |
+| `ItemType` | `MISSEDCOUNT` ≤ 42 | 3 dead switch-case labels (`BROWN_MUSHROOM`, `OBSIDIAN`, `SPIDER_EYE` — confirmed by direct probe to be intercepted by the `isBlock()`/`isEdible()` early-return guards before the switch runs) + 39 `Material.LEGACY_*` case labels that are reachable on a real server but untestable under MockBukkit v4.115.0 (see finding below) |
+
+**Bugs found and fixed while writing tests** (all committed in `f0547ae`):
+
+- `RecipeIngredient.compareTo()` called the deprecated `Material.getId()`,
+  which throws `IllegalArgumentException("Cannot get ID of Modern
+  Material")` for every Material added since the 1.13 flattening — i.e. it
+  threw for any comparison between two non-identical, non-pre-flattening
+  ingredients on every server version this project targets. Fixed to use
+  `Material.compareTo()`'s natural ordering instead (total, stable, doesn't
+  depend on the removed numeric ID). No public signature change.
+- `ItemUtils.setLore`/`setDisplayName`/`addLore` each called
+  `item.getItemMeta()` *before* `itemMetaNullCheck(item)` ran — capturing a
+  (possibly null) `ItemMeta` reference ahead of the guard meant to catch
+  exactly that case, so any item whose `getItemMeta()` legitimately returns
+  null (e.g. `Material.AIR`) would NPE on the very next line regardless of
+  the null check. Fixed by reordering: null-check first, capture the
+  `ItemMeta` reference second.
+- `ModelInjectorTest` initially had no `MockBukkit.mock()`/`unmock()`
+  lifecycle. `ModelInjector.inject()` calls `Material.getMaxDurability()`,
+  which lazily triggers a one-time MockBukkit registry/class-init chain
+  needing `Bukkit.server` to be non-null — without the lifecycle, whichever
+  `inject_*` test ran first failed, and later tests only "passed" because
+  they rode on the half-initialized registry state left behind by that
+  failure, not because they genuinely worked. This is a false-positive-test
+  trap, not a production bug — fixed in the test, not the source.
+
+**Known bugs left un-fixed** (found, deliberately not changed — see each for
+why fixing is not obviously safe):
+
+- `RecipeUtils.getRecipeJson(Recipe)` builds a local `JsonObject` with four
+  hardcoded placeholder properties (`number`, `latitude`, `longitude`,
+  `text`) that it never attaches to anything, then returns a completely
+  empty `JsonObject` regardless of the `Recipe` argument — looks like
+  unfinished upstream scaffolding, not a regression from this pass. Not
+  fixed: the intended output schema for a "recipe as JSON" isn't recoverable
+  from the placeholder property names, so any fix would be a guess at new
+  behavior for a public method, not a correctness fix.
+- `RecipeIngredient.getBlockData()` returns primitive `byte` from a boxed
+  `Byte` field that the `RecipeIngredient(ItemStack)` constructor explicitly
+  sets to `null` when given a null `ItemStack` — the next call to
+  `getBlockData()` (or `compareTo()`'s `blockData` comparison) then NPEs on
+  auto-unboxing. Not fixed: changing the return type to `Byte` to allow a
+  real null would change this public method's signature, which is out of
+  scope for this pass.
+
+**Coverage-measurement gotcha found this pass, worth remembering**:
+`ItemType.getItemType(Material)`'s exhaustive parameterized test originally
+included all 39 `Material.LEGACY_*` switch cases directly. Every one of them
+threw `org.mockbukkit.mockbukkit.exception.UnimplementedOperationException`
+(from `UnsafeValuesMock.fromLegacy()`, which MockBukkit v4.115.0 has not
+implemented) inside `isBlock()`/`isEdible()`/`isRecord()` — the early-return
+guards that run before the switch, for every material including these. The
+critical trap: JUnit5's `@MethodSource`-driven `@ParameterizedTest` recorded
+each of those 39 thrown cases as a **skipped** test, not a **failed** one —
+`./gradlew test` reported `BUILD SUCCESSFUL` with 0 failures throughout,
+and only cross-referencing JaCoCo's line-level XML (39 unexpectedly-missed
+lines) against the test-results XML's `skipped="39"` attribute (not visible
+from the Gradle console output at all) surfaced it. **A green
+`./gradlew test` is not sufficient evidence of real coverage — the
+per-class test-results XML's `skipped` count must also be checked, not just
+the overall pass/fail.** Fixed by replacing the 39 silently-skipped
+parameterized cases with one explicit, honestly-worded
+`assertThrows(UnimplementedOperationException.class, ...)` test
+(`getItemType_legacyMaterial_isUntestableUnderMockBukkit`) that documents the
+real MockBukkit limitation with a real assertion — one that will start
+failing (and prompt a revisit) the day a future MockBukkit version
+implements legacy-material resolution — instead of a comment nobody has to
+keep honest.
+
+**Standing gotcha reconfirmed**: a green `jacocoTestCoverageVerification`
+means nothing until the analyzed-class count is confirmed nonzero and
+matches the include list (`grep -o '<class name="[^"]*"'
+build/reports/jacoco/test/jacocoTestReport.xml | wc -l` — 59 here, matching
+the 59-class filtered list, confirmed above).
+
 ## Open problems / honest blockers
 
 - `NbtFactory`/`ReflectionUtils` reflect into CraftBukkit/NMS internals by
@@ -185,9 +314,61 @@ compiles for it.
   thing to break on some future MC version, and it would fail at runtime,
   not at compile time. Inherited unchanged from upstream; not exercised by
   a runtime smoke-test in this pass (see "Verification" above).
-- Folia compatibility is unverified (see the platform matrix above).
 - No Paper server smoke-boot was performed (optional per the task brief) —
   verification here is build-green + jar-content-verified only.
+
+### Folia — NOT SUPPORTED, `folia-supported` flag deliberately not added
+
+Static analysis of every `Bukkit.getScheduler()`/`BukkitRunnable` usage and
+every mutable static field in `src/main/java` found concrete, non-trivial
+blockers — not fixable as a low-risk change while this project keeps
+building one unmodified source tree against Paper/Spigot versions from
+1.18.2 through 26.2 (Folia's per-entity/per-region scheduler API classes
+don't exist on any of those non-Folia targets, so calling them directly
+would break every other build):
+
+1. **Legacy global-scheduler calls that touch specific players/entities**,
+   across 5 files: `AdditionsAPI.onEnable()`
+   (`scheduleSyncDelayedTask(this, () -> load())`), `DurabilityBar.java`
+   (5x `scheduleSyncDelayedTask`, armor-stand/display updates),
+   `ResourcePackListener.java` (`runTaskLater` to call
+   `player.setResourcePack(...)`, `runTask` to call
+   `player.kickPlayer(...)`), `CustomElytraPlayerToggleGlide.java`
+   (`Bukkit.getScheduler().cancelTask(...)`), and
+   `ArrowFromCustomBowHit.java` (`runTask` to remove a projectile entity).
+   Folia disables or repurposes most of `BukkitScheduler`'s methods and
+   requires entity-touching work to go through `Entity#getScheduler()` /
+   `Bukkit.getRegionScheduler()` instead — none of which exist in the Bukkit
+   API on pre-Folia servers.
+2. **`ElytraDurabilityTask extends BukkitRunnable`**, scheduled via
+   `task.runTaskTimer(AdditionsAPI.getInstance(), 0L, 20L)` in
+   `CustomElytraPlayerToggleGlide.java`: its `run()` calls
+   `player.isGliding()` every second for a specific player. Under Folia this
+   is a direct cross-region entity access from what would be the global
+   region thread — the textbook case Folia's threading model forbids.
+   Rewriting this as Folia's per-entity repeating task (while keeping the
+   plugin buildable against pre-Folia Paper too) is a real re-architecture,
+   not a tweak.
+3. **Two unsynchronized static `HashMap` fields keyed by per-entity data**:
+   `CustomElytraPlayerToggleGlide.playersGliding`
+   (`HashMap<UUID, Integer>`) and `ArrowFromCustomBowHit.arrowsShotFromCustomBow`
+   (`HashMap<Entity, BowStackContainer>`), both mutated from event handlers
+   with no synchronization. Under Paper's single main-thread model this is
+   harmless; under Folia, events for different players/entities can fire
+   concurrently on different region threads, making concurrent mutation of a
+   plain `HashMap` a genuine data race, not a theoretical one.
+
+None of the three are "make it safe" fixes at low risk — (1) and (2) both
+need version-conditional (reflection-gated) dispatch to Folia-only scheduler
+classes that would otherwise fail to resolve on every other target version
+this single jar also builds for, and (2) additionally needs the repeating-
+elytra-tick pattern re-architected around Folia's per-entity scheduler
+semantics. (3) alone (swap to `ConcurrentHashMap`) would be low-risk, but
+doing it in isolation would not make the plugin Folia-safe while (1)/(2)
+remain, so it was left undone rather than given as partial/misleading
+progress toward a flag that isn't actually being added. Verdict: **do not
+add `folia-supported: true`** to `plugin.yml`; Paper/Purpur/Spigot remain the
+supported platforms (see the platform matrix in `CLAUDE.md`).
 - The relocated `legacy-hooks/MinePackInitializationMethod.java.txt` would
   need a working Minepack-equivalent hosting service to ever be restored;
   none is known to exist. Effectively permanent, not a near-term TODO.

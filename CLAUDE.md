@@ -202,10 +202,20 @@ implementations, not mod loaders:
   reflect into CraftBukkit internals present on Spigot too), so it should
   run on plain Spigot, without any Paper-only optimizations (none are
   currently used).
-- **Folia** — untested. The resource-pack HTTP server
-  (`us.fihgu.toolbox.resourcepack.ResourcePackServer`) and any
-  `Bukkit.getScheduler()` usage are the most likely friction points under
-  Folia's region-threaded model; not smoke-tested.
+- **Folia** — **not supported; `folia-supported` is deliberately absent from
+  `plugin.yml`.** Static analysis (not just untested guesswork) found three
+  concrete blockers: legacy `Bukkit.getScheduler()` calls touching specific
+  players/entities across 5 files (`ResourcePackListener`, `DurabilityBar`,
+  `AdditionsAPI.onEnable`, `CustomElytraPlayerToggleGlide`,
+  `ArrowFromCustomBowHit`); `ElytraDurabilityTask` (a `BukkitRunnable`)
+  ticking one player's state every second via the global scheduler instead
+  of a per-entity one; and two unsynchronized static `HashMap`s
+  (`CustomElytraPlayerToggleGlide.playersGliding`,
+  `ArrowFromCustomBowHit.arrowsShotFromCustomBow`) mutated from event
+  handlers, which would race under Folia's region-threaded concurrent event
+  dispatch. None of these are low-risk fixes while this project keeps
+  building one source tree against pre-Folia Paper/Spigot too — see
+  "Folia" in `PLAN.md` for the full evidence and reasoning.
 - **Fabric / NeoForge / Forge are not applicable.** Bukkit/Spigot/Paper
   plugins run against a stable, server-implementation-maintained API
   (`org.bukkit.*`/`io.papermc.paper.*`) that stays source-compatible across
@@ -249,6 +259,71 @@ See `PLAN.md` for the version matrix and per-version build status.
   `ArmorEquipEvent`, `EnumCompat`, and the rest of `us.fihgu.toolbox` all
   need to ship inside the plugin jar since they aren't provided by the
   server).
+
+## Testing
+
+JUnit 5 (Jupiter) + JaCoCo, with MockBukkit for anything that touches live
+`org.bukkit.*` behavior and plain JUnit for pure-logic classes. `./gradlew
+test` runs the suite; `./gradlew check` additionally runs
+`jacocoTestCoverageVerification`, which fails the build if line coverage
+drops below 100% on any included class not named in an explicit exception.
+
+- **MockBukkit is pinned separately from the main build's `paperApiVersion`**
+  (`mockbukkit-v26.1.2:4.115.0` in the `test` configuration, vs. the
+  floating/overridable `paperApiVersion` used by `compileOnly` for the main
+  source set). MockBukkit ships a fixed registry snapshot tied to one exact
+  server build (`26.1.2.build.74-stable`) — it is not a moving target the
+  way `paperApiVersion` is, and pinning it independently is intentional, not
+  an oversight.
+- **Coverage exclusions are documented, never silent.** Every excluded
+  class/package and every partial-coverage exception (`MISSEDCOUNT`/
+  `COVEREDRATIO` ceiling) in `build.gradle.kts`'s `jacocoExcludes` and
+  `violationRules` blocks carries an inline comment explaining exactly why
+  that gap exists (a real bootstrap landmine, provably-dead code, or a
+  MockBukkit limitation) — never a bare number. See "Test coverage" in
+  `PLAN.md` for the full list, the final coverage numbers, and the bugs
+  found (and one deliberately left un-fixed) while writing this suite.
+- **A `MISSEDCOUNT`/`COVEREDRATIO` `includes`-rule alone does not except a
+  class from the coverage gate.** `build.gradle.kts` also has one blanket
+  top-level `CLASS`-element rule (100% `LINE` minimum, no `includes`) that
+  applies to every analyzed class except those listed in *its own*
+  `excludes`. A new per-class exception needs to be added to both: the
+  narrow `includes`-based rule with its exact ceiling, and the blanket
+  rule's `excludes` list — otherwise the blanket rule still fires against
+  the class at its old 100% bar.
+- **A green `./gradlew test` is not sufficient evidence that a
+  parameterized/data-driven test actually verified anything.** If an
+  individual case throws before its assertion runs, JUnit5's
+  `@MethodSource` machinery records that case as **skipped**, not
+  **failed** — the run stays `BUILD SUCCESSFUL` with 0 failures while
+  silently verifying nothing for that case. Always check the per-class
+  test-results XML's `skipped` attribute too (not shown in the Gradle
+  console output), and cross-reference it against JaCoCo's line-coverage
+  numbers. When a whole category of cases is genuinely untestable under the
+  mocking framework in use, don't delete them silently — replace them with
+  one explicit `assertThrows`-based test that documents and proves the real
+  limitation, so a future fix to the underlying mocking gap will make that
+  test start failing (prompting a revisit) instead of leaving a stale
+  comment nobody has to keep honest.
+- **A green `jacocoTestCoverageVerification` means nothing until the
+  analyzed-class count is confirmed nonzero and matches the include list**
+  (`grep -o '<class name="[^"]*"' build/reports/jacoco/test/
+  jacocoTestReport.xml | wc -l`). A misconfigured `includes`/`excludes`
+  filter can make JaCoCo analyze zero classes and still report a trivially
+  "passing" verification.
+- **MockBukkit registry side effects can produce false-positive passes.**
+  Some Bukkit calls (e.g. `Material.getMaxDurability()`) lazily trigger a
+  one-time registry/class-init chain requiring `MockBukkit.mock()` to have
+  run first. A test class missing the `@BeforeAll MockBukkit.mock()` /
+  `@AfterAll MockBukkit.unmock()` lifecycle can still "pass" if an earlier
+  test in the same JVM run happened to trigger that init as a side effect —
+  don't trust a green run for any class touching Bukkit-registry-lazy-init
+  code paths unless it's been run in isolation at least once.
+- When in doubt about live MockBukkit/real-object behavior before writing a
+  real test against it, probe first with a throwaway `ScratchProbeTest.java`
+  (a one-off test that just prints/asserts what actually happens), confirm
+  the behavior, then delete the probe — don't guess and don't leave the
+  probe committed.
 
 ## Porting notes for whoever touches this next
 
