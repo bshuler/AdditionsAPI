@@ -392,3 +392,15 @@ supported platforms (see the platform matrix in `CLAUDE.md`).
   `AdditionsAPI-commit-msg.txt` instead of being force-committed unsigned,
   and all other non-commit work continues. See the final task report for
   which commits landed vs. were parked.
+
+## Coverage in context (measured 2026-08-13)
+
+Read from the JaCoCo XML report, not from whether the gate passes:
+
+- **Analysed surface:** 59 of 210 compiled classes (28%).
+- **Line coverage of that surface:** 94.7% (1371 lines analysed).
+- Classes outside that surface are excluded by the documented exclusion list. They
+  are not covered by any test and are not runtime-verified.
+
+A passing `check` means "no regression inside the analysed surface" — it does not
+mean the whole codebase is tested to that percentage.
