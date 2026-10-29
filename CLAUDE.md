@@ -9,7 +9,7 @@ hardcoded vanilla-item-durability hacks, generates and serves the resource
 pack that backs those textures, and provides its own fake-durability,
 recipe, and permission systems.
 
-**This is a dependency for other of Bert's `domain.*` plugins.** Read
+**This is a dependency for other of Human's `domain.*` plugins.** Read
 "API-surface notes for dependent plugins" below before assuming any public
 method/field/constant still means what it used to.
 

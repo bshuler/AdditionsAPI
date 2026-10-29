@@ -385,7 +385,7 @@ supported platforms (see the platform matrix in `CLAUDE.md`).
   updated via `gh repo edit bshuler/AdditionsAPI --default-branch main`.
   `master` (old default) left in place, not deleted.
 - Do not commit anything under `.github/workflows/`.
-- Commits authored as `Bert Shuler <BertShuler@proton.me>`, signed via the
+- Commits authored as the repo's configured git identity, signed via the
   1Password SSH agent. **Signing was confirmed down this pass** (`op
   whoami` failed) — each commit is attempted exactly once; on failure the
   prepared commit message is appended to the session scratchpad's
